@@ -1,0 +1,776 @@
+<link
+  href="https://fonts.googleapis.com/icon?family=Material+Icons"
+  rel="stylesheet"
+/>
+<div id="system">
+  <div id="tools">
+    <a data-tool="edit"><i class="material-icons">edit</i></a>
+    <a data-tool="pan"><i class="material-icons">pan_tool</i></a>
+    <a data-tool="template"><i class="material-icons">menu</i></a>
+  </div>
+  <div id="status">
+    <div style="display: flex; align-items: center">
+      <div id="commands">
+        <button id="start" data-pause-icon="pause" data-play-icon="play_arrow">
+          <i class="material-icons">play_arrow</i>
+        </button>
+        <button id="next"><i class="material-icons">skip_next</i></button>
+      </div>
+      <div id="time">
+        <a data-value="500" class="is-active">Slow</a>
+        <a data-value="200">Fast</a>
+        <a data-value="50">Very Fast</a>
+      </div>
+    </div>
+    <div id="info">
+      <h2>Generations</h2>
+      <div id="generations">0</div>
+    </div>
+    <div id="form" style="display: none">
+      <h2>Faster</h2>
+      <input id="timeframe" type="range" min="10" max="500" value="500" />
+      <h2>Slower</h2>
+    </div>
+  </div>
+  <canvas id="canvas"></canvas>
+</div>
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  button {
+    outline: none;
+  }
+
+  html {
+    overflow: hidden;
+  }
+
+  body {
+    font-family: "Open Sans", Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    background-color: #efefef;
+    color: #314376;
+  }
+
+  a,
+  button {
+    transition: all 0.2s;
+  }
+
+  h2 {
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+
+  #system {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    user-select: none;
+  }
+
+  #tools {
+    position: absolute;
+    left: 0;
+    heightl: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  #tools a {
+    display: block;
+    padding: 20px;
+    box-shadow: 0 1px 3px 0 rgba(0, 24, 55, 0.2),
+      0 1px 1px 0 rgba(0, 24, 55, 0.04), 0 2px 1px -1px rgba(0, 24, 55, 0.02);
+    background-color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+  }
+  #tools a.is-active {
+    background-color: #556fb8;
+    color: #fff;
+  }
+  #tools a.is-active.is-dirty {
+    background-color: #ffd7ed;
+    color: #7a2e4d;
+  }
+
+  #status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 800px;
+    margin-left: -400px;
+    padding: 10px;
+    box-shadow: 0 1px 3px 0 rgba(0, 24, 55, 0.2),
+      0 1px 1px 0 rgba(0, 24, 55, 0.04), 0 2px 1px -1px rgba(0, 24, 55, 0.02);
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  #commands,
+  #form,
+  #info {
+    display: flex;
+    align-items: center;
+  }
+  #form input {
+    margin: 0 20px;
+  }
+
+  #start,
+  #next {
+    border: 0;
+    padding: 10px 20px;
+    text-transform: uppercase;
+    font-size: 13px;
+    background-color: #556fb8;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 1px 3px 0 rgba(0, 24, 55, 0.2),
+      0 1px 1px 0 rgba(0, 24, 55, 0.04), 0 2px 1px -1px rgba(0, 24, 55, 0.02);
+  }
+  #start {
+  }
+  #next {
+    background-color: #fff;
+    color: #314376;
+    padding: 6px 10px;
+  }
+
+  #start:active,
+  #next:active {
+    background-color: #b8557e;
+    box-shadow: none;
+  }
+
+  #start:active {
+  }
+  #start.has-started {
+    background-color: #b8557e;
+  }
+  #start.has-started:active {
+    background-color: #556fb8;
+  }
+
+  #next:active {
+    background-color: #ffd7ed;
+    color: #7a2e4d;
+  }
+
+  #generations {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 0 10px;
+  }
+
+  #timeframe {
+    width: 300px;
+  }
+
+  #time {
+    display: flex;
+  }
+
+  #time a {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    background-color: #fff;
+    box-shadow: 0 1px 3px 0 rgba(0, 24, 55, 0.2),
+      0 1px 1px 0 rgba(0, 24, 55, 0.04), 0 2px 1px -1px rgba(0, 24, 55, 0.02);
+    padding: 10px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  #time a.is-active {
+    box-shadow: none;
+    background-color: #d7e2ff;
+  }
+</style>
+
+<script>
+  function trackTransforms(ctx) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    var xform = svg.createSVGMatrix();
+    ctx.getTransform = function () {
+      return xform;
+    };
+
+    var savedTransforms = [];
+    var save = ctx.save;
+    ctx.save = function () {
+      savedTransforms.push(xform.translate(0, 0));
+      return save.call(ctx);
+    };
+
+    var restore = ctx.restore;
+    ctx.restore = function () {
+      xform = savedTransforms.pop();
+      return restore.call(ctx);
+    };
+
+    var scale = ctx.scale;
+    ctx.scale = function (sx, sy) {
+      xform = xform.scaleNonUniform(sx, sy);
+      return scale.call(ctx, sx, sy);
+    };
+
+    var rotate = ctx.rotate;
+    ctx.rotate = function (radians) {
+      xform = xform.rotate((radians * 180) / Math.PI);
+      return rotate.call(ctx, radians);
+    };
+
+    var translate = ctx.translate;
+    ctx.translate = function (dx, dy) {
+      xform = xform.translate(dx, dy);
+      return translate.call(ctx, dx, dy);
+    };
+
+    var transform = ctx.transform;
+    ctx.transform = function (a, b, c, d, e, f) {
+      var m2 = svg.createSVGMatrix();
+      m2.a = a;
+      m2.b = b;
+      m2.c = c;
+      m2.d = d;
+      m2.e = e;
+      m2.f = f;
+      xform = xform.multiply(m2);
+      return transform.call(ctx, a, b, c, d, e, f);
+    };
+
+    var setTransform = ctx.setTransform;
+    ctx.setTransform = function (a, b, c, d, e, f) {
+      xform.a = a;
+      xform.b = b;
+      xform.c = c;
+      xform.d = d;
+      xform.e = e;
+      xform.f = f;
+      return setTransform.call(ctx, a, b, c, d, e, f);
+    };
+
+    var pt = svg.createSVGPoint();
+    ctx.transformedPoint = function (x, y) {
+      pt.x = x;
+      pt.y = y;
+      return pt.matrixTransform(xform.inverse());
+    };
+  }
+
+  class Canvas {
+    constructor(app, options) {
+      this.app = app;
+      this.options = {
+        zoom: true,
+        pan: true,
+        animate: false,
+        ...options,
+      };
+
+      this.$canvas = document.querySelector("#canvas");
+      this.$canvas.width = window.innerWidth;
+      this.$canvas.height = window.innerHeight;
+      this.ctx = this.$canvas.getContext("2d"); //, { alpha: false })
+      trackTransforms(this.ctx);
+      this.toCenter();
+
+      this.zoomFactor = 1.1;
+      this.lastX = this.$canvas.width / 2;
+      this.lastY = this.$canvas.height / 2;
+      this.dragStart = null;
+      this.animationStarted = false;
+      this.dirty = false;
+
+      this.handleZoom = this.handleZoom.bind(this);
+      this.handleMouseDown = this.handleMouseDown.bind(this);
+      this.handleMouseMove = this.handleMouseMove.bind(this);
+      this.handleMouseUp = this.handleMouseUp.bind(this);
+      this.redraw = this.redraw.bind(this);
+      this.update = this.update.bind(this);
+
+      if (this.options.zoom)
+        this.$canvas.addEventListener("mousewheel", this.handleZoom, false);
+
+      this.$canvas.addEventListener("mousedown", this.handleMouseDown, false);
+      this.$canvas.addEventListener("mousemove", this.handleMouseMove, false);
+      this.$canvas.addEventListener("mouseup", this.handleMouseUp, false);
+    }
+
+    animate() {
+      this.animationStarted = true;
+      window.requestAnimationFrame(this.update);
+    }
+
+    clearCanvas() {
+      this.ctx.clearRect(0, 0, this.$canvas.width, this.$canvas.height);
+    }
+
+    redraw() {
+      let p1 = this.ctx.transformedPoint(0, 0);
+      let p2 = this.ctx.transformedPoint(
+        this.$canvas.width,
+        this.$canvas.height
+      );
+      this.ctx.clearRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+
+      this.ctx.save();
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.clearRect(0, 0, this.$canvas.width, this.$canvas.height);
+      this.ctx.restore();
+
+      if (!this.options.animate) this.update();
+    }
+
+    update() {
+      this.app.draw(this.ctx);
+
+      if (this.options.animate) window.requestAnimationFrame(this.update);
+    }
+
+    toCenter() {
+      const offsetScreenX = -Math.floor(
+        (this.app.gridWidth - this.$canvas.width) / 2
+      );
+      const offsetScreenY = -Math.floor(
+        (this.app.gridHeight - this.$canvas.height) / 2
+      );
+      this.ctx.setTransform(1, 0, 0, 1, offsetScreenX, offsetScreenY);
+    }
+
+    clear() {
+      if (this.dirty) {
+        this.dirty = false;
+        this.toCenter();
+        if (!this.options.animate) this.redraw();
+      }
+    }
+
+    zoom(delta) {
+      this.dirty = true;
+      let pt = this.ctx.transformedPoint(this.lastX, this.lastY);
+      this.ctx.translate(pt.x, pt.y);
+
+      let factor = Math.pow(this.zoomFactor, delta);
+      this.ctx.scale(factor, factor);
+      this.ctx.translate(-pt.x, -pt.y);
+
+      if (!this.options.animate) this.redraw();
+      this.app.interface.reload();
+    }
+
+    handleZoom(e) {
+      let delta = e.wheelDelta ? e.wheelDelta / 40 : e.detail ? -e.detail : 0;
+      if (delta && this.options.pan && this.app.currentTool === "pan")
+        this.zoom(delta);
+    }
+
+    handleMouseDown(e) {
+      this.lastX = e.offsetX || e.pageX - this.$canvas.offsetLeft;
+      this.lastY = e.offsetY || e.pageY - this.$canvas.offsetTop;
+
+      this.dragStart = this.ctx.transformedPoint(this.lastX, this.lastY);
+      this.app.mouseDown(e);
+    }
+
+    handleMouseMove(e) {
+      this.lastX = e.offsetX || e.pageX - this.$canvas.offsetLeft;
+      this.lastY = e.offsetY || e.pageY - this.$canvas.offsetTop;
+
+      if (!this.dragStart) return;
+
+      this.dragMove = true;
+      this.app.mouseDrag(e);
+
+      if (this.options.pan && this.app.currentTool === "pan") {
+        this.dirty = true;
+        let pt = this.ctx.transformedPoint(this.lastX, this.lastY);
+        this.ctx.translate(pt.x - this.dragStart.x, pt.y - this.dragStart.y);
+        this.app.interface.reload();
+      }
+
+      if (!this.options.animate) this.redraw();
+    }
+
+    handleMouseUp(e) {
+      this.app.mouseUp(e);
+
+      this.dragStart = null;
+      this.dragMove = null;
+    }
+  }
+
+  class DomUI {
+    constructor(app) {
+      this.app = app;
+
+      this.$timeframe = document.querySelector("#timeframe");
+      this.$time = document.querySelector("#time");
+      this.$next = document.querySelector("#next");
+      this.$start = document.querySelector("#start");
+      this.$startIcon = this.$start.querySelector("i");
+      this.$generations = document.querySelector("#generations");
+      this.$tools = document.querySelector("#tools");
+
+      this.handleClick = this.handleClick.bind(this);
+      this.handleMouseDown = this.handleMouseDown.bind(this);
+      this.handleMouseUp = this.handleMouseUp.bind(this);
+      this.handleMouseMove = this.handleMouseMove.bind(this);
+      this.changeTimeframe = this.changeTimeframe.bind(this);
+      this.load = this.load.bind(this);
+      this.reload = this.reload.bind(this);
+
+      window.addEventListener("click", this.handleClick);
+      window.addEventListener("mousedown", this.handleMouseDown, false);
+      window.addEventListener("mouseup", this.handleMouseUp, false);
+      window.addEventListener("mousemove", this.handleMouseMove, false);
+      this.$timeframe.addEventListener("change", this.changeTimeframe);
+
+      this.load();
+    }
+
+    load() {
+      this.$generations.innerHTML = this.app.generations;
+
+      const classes = ["is-active"];
+      if (this.app.canvas.dirty && this.app.currentTool === "pan")
+        classes.push("is-dirty");
+
+      this.$tools
+        .querySelectorAll("a")
+        .forEach((item) => item.classList.remove("is-active", "is-dirty"));
+      this.$tools
+        .querySelector(`[data-tool="${this.app.currentTool}"]`)
+        .classList.add(...classes);
+    }
+
+    reload() {
+      this.load();
+    }
+
+    handleClick(e) {
+      if (e.target.id === "start" || e.target.parentElement.id === "start") {
+        if (this.app.timeframe) {
+          this.app.stopGame();
+          this.$start.classList.remove("has-started");
+          this.$startIcon.innerHTML =
+            this.$start.getAttribute("data-play-icon");
+        } else {
+          this.app.startGame(this.app.config.timeframe);
+          this.$start.classList.add("has-started");
+          this.$startIcon.innerHTML =
+            this.$start.getAttribute("data-pause-icon");
+        }
+      } else if (e.target.parentElement.id === "time") {
+        const el = e.target;
+        const value = +el.getAttribute("data-value");
+
+        this.$time
+          .querySelectorAll("a")
+          .forEach((item) => item.classList.remove("is-active"));
+        el.classList.add("is-active");
+        this.app.setConfig({ timeframe: value });
+      } else if (
+        e.target.parentElement.id === "tools" ||
+        e.target.parentElement.parentElement.id === "tools"
+      ) {
+        const el = e.target;
+        const tool =
+          e.target.getAttribute("data-tool") ||
+          e.target.parentElement.getAttribute("data-tool");
+
+        this.app.selectTool(tool);
+      }
+    }
+
+    handleMouseDown(e) {
+      if (e.target.id === "next" || e.target.parentElement.id === "next") {
+        this.app.startGame(200);
+        this.$start.classList.remove("has-started");
+        this.$startIcon.innerHTML = this.$start.getAttribute("data-play-icon");
+        this.isHoldingNextButton = true;
+      }
+    }
+
+    handleMouseUp(e) {
+      if (this.isHoldingNextButton) this.app.stopGame();
+
+      this.isHoldingNextButton = false;
+    }
+
+    handleMouseMove(e) {}
+
+    changeTimeframe(e) {
+      this.app.setConfig({
+        timeframe: +e.target.value === 500 ? 0 : e.target.value,
+      });
+    }
+  }
+
+  class GameOfLife {
+    constructor() {
+      this.config = { timeframe: 1000 };
+      this.gridGutter = 1;
+      this.gridTile = {
+        size: 40,
+        color: { default: "#efefef", hover: "#cfd8e3", active: "#21354e" },
+      };
+      this.gridSize = { x: 60, y: 40 };
+      this.gridColor = "#ccc";
+
+      this.gridTiles = [];
+      this.gridTileSizeOuter = this.gridTile.size + this.gridGutter;
+      this.gridWidth =
+        this.gridSize.x * this.gridTileSizeOuter + this.gridGutter;
+      this.gridHeight =
+        this.gridSize.y * this.gridTileSizeOuter + this.gridGutter;
+      this.lastTile = {};
+      this.timeframe = null;
+      this.generations = 0;
+      this.hasGamesStarted = false;
+      this.currentTool = "edit";
+
+      this.canvas = new Canvas(this, { zoom: true, pan: true, animate: true });
+      this.interface = new DomUI(this);
+
+      this.giveLife = this.giveLife.bind(this);
+
+      this.generateGrid();
+      this.canvas.animate();
+    }
+
+    setConfig(config) {
+      this.config = {
+        ...this.config,
+        ...config,
+      };
+
+      if (this.hasGamesStarted) this.startGame(this.config.timeframe);
+    }
+
+    generateGrid() {
+      for (let y = 0; y < this.gridSize.y; y++) {
+        const row = [];
+
+        for (let x = 0; x < this.gridSize.x; x++) {
+          row.push({
+            x: x * this.gridTileSizeOuter,
+            y: y * this.gridTileSizeOuter,
+            isAlive: false,
+          });
+        }
+
+        this.gridTiles.push(row);
+      }
+    }
+
+    startGame(time) {
+      this.stopGame();
+
+      if (time > 0) {
+        this.giveLife();
+        this.timeframe = setInterval(this.giveLife, time);
+        this.hasGamesStarted = true;
+      }
+    }
+
+    nextFrame() {
+      this.stopGame();
+      this.giveLife();
+    }
+
+    stopGame() {
+      clearInterval(this.timeframe);
+      this.timeframe = null;
+      this.hasGamesStarted = false;
+    }
+
+    giveLife() {
+      this.deadTiles = [];
+      this.aliveTiles = [];
+      this.gridTiles.map((row, rowIdx) =>
+        row.map((tile, tileIdx) => {
+          const E = this.gridTiles[rowIdx][tileIdx + 1] || {};
+          const W = this.gridTiles[rowIdx][tileIdx - 1] || {};
+          const S =
+            (this.gridTiles[rowIdx + 1] &&
+              this.gridTiles[rowIdx + 1][tileIdx]) ||
+            {};
+          const SE =
+            (this.gridTiles[rowIdx + 1] &&
+              this.gridTiles[rowIdx + 1][tileIdx + 1]) ||
+            {};
+          const SW =
+            (this.gridTiles[rowIdx + 1] &&
+              this.gridTiles[rowIdx + 1][tileIdx - 1]) ||
+            {};
+          const N =
+            (this.gridTiles[rowIdx - 1] &&
+              this.gridTiles[rowIdx - 1][tileIdx]) ||
+            {};
+          const NE =
+            (this.gridTiles[rowIdx - 1] &&
+              this.gridTiles[rowIdx - 1][tileIdx + 1]) ||
+            {};
+          const NW =
+            (this.gridTiles[rowIdx - 1] &&
+              this.gridTiles[rowIdx - 1][tileIdx - 1]) ||
+            {};
+          const neighbors = [N, NE, E, SE, S, SW, W, NW];
+
+          let aliveNeighbors = 0;
+          neighbors.map((cell) => {
+            if (cell.isAlive) aliveNeighbors++;
+            return null;
+          });
+
+          if (tile.isAlive) {
+            if (aliveNeighbors < 2) this.deadTiles.push(tile);
+            if (aliveNeighbors > 3) this.deadTiles.push(tile);
+          }
+
+          if (!tile.isAlive) {
+            if (aliveNeighbors === 3) this.aliveTiles.push(tile);
+          }
+
+          return null;
+        })
+      );
+
+      this.deadTiles.map((tile) => (tile.isAlive = false));
+      this.aliveTiles.map((tile) => (tile.isAlive = true));
+      this.generations++;
+      this.interface.reload();
+    }
+
+    selectTool(tool) {
+      if (tool === this.currentTool && this.currentTool === "pan")
+        this.canvas.clear();
+
+      this.currentTool = tool;
+      this.interface.reload();
+    }
+
+    /* ------------------------------------------------------------------- */
+
+    draw(ctx) {
+      this.canvas.redraw();
+
+      this.drawGrid(ctx);
+    }
+
+    clear() {
+      this.canvas.clear();
+    }
+
+    /* ------------------------------------------------------------------- */
+
+    drawGrid(ctx) {
+      ctx.fillStyle = this.gridColor;
+      ctx.fillRect(
+        -this.gridGutter,
+        -this.gridGutter,
+        this.gridWidth,
+        this.gridHeight
+      );
+
+      this.gridTiles.map((row) => row.map((tile) => this.drawTile(ctx, tile)));
+    }
+
+    drawTile(ctx, tile) {
+      ctx.fillStyle = tile.isAlive
+        ? this.gridTile.color.active
+        : this.gridTile.color.default;
+      const pt = ctx.transformedPoint(this.canvas.lastX, this.canvas.lastY);
+
+      if (this.currentTool === "edit") {
+        if (
+          pt.x >= tile.x &&
+          pt.x <= tile.x + this.gridTile.size &&
+          pt.y >= tile.y &&
+          pt.y <= tile.y + this.gridTile.size
+        ) {
+          ctx.fillStyle = tile.isAlive
+            ? this.gridTile.color.active
+            : this.gridTile.color.hover;
+        }
+      }
+
+      ctx.fillRect(tile.x, tile.y, this.gridTile.size, this.gridTile.size);
+    }
+
+    getTileAt(x, y) {
+      return (
+        this.gridTiles.reduce((acc, row) => {
+          const tileItem = row.find((tile) => {
+            const pt = this.canvas.ctx.transformedPoint(x, y);
+            return pt.x >= tile.x &&
+              pt.x <= tile.x + this.gridTile.size &&
+              pt.y >= tile.y &&
+              pt.y <= tile.y + this.gridTile.size
+              ? tile
+              : null;
+          });
+
+          return tileItem ? acc.concat(tileItem) : acc;
+        }, [])[0] || {}
+      );
+    }
+
+    getTilePos(x, y) {
+      return {
+        x: this.gridTileSizeOuter * x,
+        y: this.gridTileSizeOuter * y,
+      };
+    }
+
+    getTileSize(size = 1) {
+      //
+      return this.gridTileSizeOuter * size - this.gridGutter;
+    }
+
+    /* ------------------------------------------------------------------- */
+
+    tileClick(tile) {
+      if (tile.x === this.lastTile.x && tile.y === this.lastTile.y) return;
+
+      tile.isAlive = !this.firstTilePicked;
+      this.lastTile = tile;
+    }
+
+    mouseDown() {
+      if (this.currentTool === "edit")
+        this.firstTilePicked = this.getTileAt(
+          this.canvas.lastX,
+          this.canvas.lastY
+        ).isAlive;
+    }
+
+    mouseDrag() {
+      if (this.currentTool === "edit")
+        this.tileClick(this.getTileAt(this.canvas.lastX, this.canvas.lastY));
+    }
+
+    mouseUp() {
+      if (this.currentTool === "edit")
+        this.tileClick(this.getTileAt(this.canvas.lastX, this.canvas.lastY));
+
+      this.lastTile = {};
+    }
+  }
+
+  window.addEventListener("load", () => new GameOfLife());
+</script>
