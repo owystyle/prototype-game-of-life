@@ -1,7 +1,8 @@
 # Game of Life Prototype
 
-> A prototype of Game of Life made with vanilla js
+> Conway's Game of Life built from scratch with vanilla JS using canvas and requestAnimationFrame
 
 ## Demo
 
-[Demo](https://ntropy.space/gameoflife.html)
+![Demo](https://ntropy.space/gameoflife/demo.gif)
+[Demo](https://ntropy.space/gameoflife)
