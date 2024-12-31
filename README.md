@@ -1,15 +1,13 @@
 # Game of Life Prototype
 
-> Conway's Game of Life built from scratch with vanilla JS using canvas and requestAnimationFrame
+A browser-based implementation of Conway's Game of Life using vanilla JS and CSS.
 
 ![Demo](https://ntropy.space/gameoflife/demo.gif)
 
 ## Why
 
-Playing with default capabilities of browser and canvas to demonstrate how powerfull JS is without using any libraries. Second is to show how simple rules can create complex forms.
+This project showcases the power of JavaScript without libraries and highlights how simple rules can evolve into complex and fascinating patterns.
 
 ## Demo
 
 [Demo](https://ntropy.space/gameoflife)
-
-Contributing
